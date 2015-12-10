@@ -7,14 +7,33 @@ var crlf_buf = new Buffer(2);
 crlf_buf[0] = constant.CR;
 crlf_buf[1] = constant.LF;
 
+var dotcrlf_buf = new Buffer(3);
+dotcrlf_buf[0] = constant.PERIOD;
+dotcrlf_buf[1] = constant.CR;
+dotcrlf_buf[2] = constant.LF;
+
+var DM_DIS = 0;
+var DM_ENTER = 1;
+var DM_INTER = 2;
+
 module.exports = {
-	instance : function(connection, event_name) {
+	instance : function(connection, event_name, data_event, data_end_event) {
 		var bufs = [];
 		var total_length = 0;
 		var emitter = new events.EventEmitter();
+		var data_mode = DM_DIS;
 
 		return {
 			emitter: emitter,
+			disable_data_mode: function() {
+				data_mode = DM_DIS;
+			},
+			enter_data_mode: function() {
+				data_mode = DM_ENTER;
+			},
+			inter_data_mode: function() {
+				data_mode = DM_INTER;
+			},
 			read: function(chunk) {
 				var new_buf;
 				var processed = false;
@@ -64,11 +83,28 @@ module.exports = {
 						}
 					}
 
-					var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
-					cmd_buf = null;
+					if (data_mode === DM_DIS) {
+						var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
+						cmd_buf = null;
 
-					connection.pause();
-					emitter.emit(event_name, str);
+						connection.pause();
+						emitter.emit(event_name, str);
+					}
+					else {
+						if (cmd_buf[0] == constant.PERIOD && cmd_buf.length > dotcrlf_buf.length) {
+							cmd_buf = cmd_buf.slice(1);
+						}
+
+						connection.pause();
+						if (cmd_buf.length == dotcrlf_buf.length &&
+							cmd_buf.equals(dotcrlf_buf)) {
+							emitter.emit(data_end_event);
+						}
+						else {
+							data_mode = DM_INTER;
+							emitter.emit(data_event, cmd_buf);
+						}
+					}
 				}
 			},
 			read_next: function() {

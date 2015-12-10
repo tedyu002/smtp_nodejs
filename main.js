@@ -25,7 +25,7 @@ else {
 		});
 		
 
-		var readline_inst = readline.instance(connection, constant.EVT_LINE);
+		var readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end');
 		var next_cmd = function() {
 			readline_inst.read_next();
 		}
@@ -33,7 +33,7 @@ else {
 		connection.on('data', readline_inst.read);
 		connection.pause();
 
-		readline_inst.emitter.on(constant.EVT_LINE, function(cmd_line) {
+		readline_inst.emitter.on('evt_cmd', function(cmd_line) {
 			var res = parser.parse(cmd_line);
 			switch (res.cmd) {
 				case 'HELO':
@@ -48,6 +48,14 @@ else {
 				case 'MAIL':
 					console.log('Get mail from ' + res.from);
 					break;
+				case 'RCPT':
+					console.log('Rect to ' + res.to);
+					break;
+				case 'DATA':
+					console.log('DATA');
+					readline_inst.enter_data_mode();
+					connection.write("354 Start mail input; end with <CRLF>.<CRLF>\r\n", next_cmd);
+					break;
 				case 'RSET':
 					connection.write('250\r\n', next_cmd);
 					break;
@@ -59,6 +67,18 @@ else {
 				default:
 					console.log("Unknown: " + res.cmd);
 			}
+		});
+
+		readline_inst.emitter.on('evt_data', function(buf) {
+			console.log("Get buf with length " + buf.length + ' ' + buf.toString('ascii'));
+			readline_inst.read_next();
+		});
+
+		readline_inst.emitter.on('evt_data_end', function() {
+			connection.write('250\r\n', function() {
+				readline_inst.disable_data_mode();
+				readline_inst.read_next();
+			});
 		});
 
 		connection.on('timeout', function() {

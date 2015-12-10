@@ -2,7 +2,6 @@
 
 /* lexical grammar */
 %lex
-MAIL			MAIL
 %%
 
 \s+				/* skip whitespace */
@@ -57,6 +56,19 @@ cmd
 			$$ = {
 				cmd: 'MAIL',
 				from: $4
+			};
+		}
+	| RCTP TO SEP mail_path
+		{
+			$$ = {
+				cmd: 'RCPT',
+				to: $4
+			};
+		}
+	| DATA
+		{
+			$$ = {
+				cmd: 'DATA'
 			};
 		}
 	| RSET
