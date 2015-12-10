@@ -2,21 +2,24 @@
 
 /* lexical grammar */
 %lex
+MAIL			MAIL
 %%
 
 \s+				/* skip whitespace */
-"MAIL"			return "MAIL"
-"FROM"			return 'FROM'
-"RCPT"			return 'RCPT'
-"TO"			return 'TO'
-"RSET"			return 'RSET'
-"QUIT"			return 'QUIT'
-"DATA"			return 'DATA'
-"<"				return 'LC'
-">"				return 'RC'
-","				return 'COMMA'
-"@"				return 'AT'
-":"				return 'SEP'
+(H|h)(E|e)(L|l)(O|o)			return "HELO"
+(E|e)(H|h)(L|l)(O|o)			return "EHLO"
+"MAIL"							return "MAIL"
+"FROM"							return 'FROM'
+"RCPT"							return 'RCPT'
+"TO"							return 'TO'
+"RSET"							return 'RSET'
+"QUIT"							return 'QUIT'
+"DATA"							return 'DATA'
+"<"								return 'LC'
+">"								return 'RC'
+","								return 'COMMA'
+"@"								return 'AT'
+":"								return 'SEP'
 
 /lex
 
@@ -35,7 +38,21 @@ expressions
 	;
 
 cmd
-	: MAIL FROM SEP mail_path
+	: HELO
+		{
+			$$ = {
+				cmd: 'HELO',
+				is_ext: 0
+			};
+		}
+	| EHLO
+		{
+			$$ = {
+				cmd: 'HELO',
+				is_ext: 1
+			};
+		}
+	| MAIL FROM SEP mail_path
 		{
 			$$ = {
 				cmd: 'MAIL',

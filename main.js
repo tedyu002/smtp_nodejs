@@ -26,6 +26,9 @@ else {
 		
 
 		var readline_inst = readline.instance(connection, constant.EVT_LINE);
+		var next_cmd = function() {
+			readline_inst.read_next();
+		}
 
 		connection.on('data', readline_inst.read);
 		connection.pause();
@@ -33,13 +36,19 @@ else {
 		readline_inst.emitter.on(constant.EVT_LINE, function(cmd_line) {
 			var res = parser.parse(cmd_line);
 			switch (res.cmd) {
+				case 'HELO':
+					if (res.is_ext === 1) {
+						connection.write("250-" + config.domain_name + "\r\n", next_cmd);
+						connection.write("250 SIZE " + config.mail_data_max + "\r\n", next_cmd);
+					}
+					else {
+						connection.write("250 " + config.domain_name + "\r\n", next_cmd);
+					}
 				case 'MAIL':
 					console.log('Get mail from ' + res.from);
 					break;
 				case 'RSET':
-					connection.write('250\r\n', function() {
-						readline_inst.read_next();
-					});
+					connection.write('250\r\n', next_cmd);
 					break;
 				case 'QUIT':
 					connection.write('221\r\n', function() {
