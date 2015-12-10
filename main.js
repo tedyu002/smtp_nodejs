@@ -44,6 +44,7 @@ else {
 					else {
 						connection.write("250 " + config.domain_name + "\r\n", next_cmd);
 					}
+					break;
 				case 'MAIL':
 					console.log('Get mail from ' + res.from);
 					break;
