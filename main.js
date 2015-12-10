@@ -1,10 +1,12 @@
 var config = require('./config.js');
 var log = require('./log.js');
+var constant = require('./constant.js');
+var readline = require('./readline.js');
 
 var cluster = require('cluster');
 
 if (cluster.isMaster) {
-	for (var i = 0;i < config.fork_num; ++i) {
+	for (var i = 0; i < config.fork_num; ++i) {
 		cluster.fork();
 	}
 	cluster.on('exit', function(worker, code, signal) {
@@ -21,22 +23,25 @@ else {
 			console.log(log_prefix + 'cliet disconnected');
 		});
 		
-		connection.write("Hello Word\r\n");
 
-		var read_func = function(chunk) {
-			connection.pause();
-			connection.write(chunk, function() {
-				connection.resume();
+		var readline_inst = readline.instance(connection, constant.EVT_LINE);
+
+		connection.on('data', readline_inst.read);
+		connection.pause();
+
+		readline_inst.emitter.on(constant.EVT_LINE, function(cmd_line) {
+			connection.write(cmd_line, function() {
+				readline_inst.read_next();
 			});
-		};
-
-		connection.on('data', read_func);
+		});
 
 		connection.on('timeout', function() {
 			connection.end();
 		});
 
 		connection.setTimeout(config.idle_time);
+
+		readline_inst.read_next();
 	});
 
 	server.listen(8000, function() {
