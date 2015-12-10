@@ -64,7 +64,7 @@ module.exports = {
 						}
 					}
 
-					var str = cmd_buf.toString('ascii');
+					var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
 					cmd_buf = null;
 
 					connection.pause();

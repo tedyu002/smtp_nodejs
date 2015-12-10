@@ -15,6 +15,7 @@ if (cluster.isMaster) {
 }
 else {
 	var net = require('net');
+	var parser = require('./grammar.js').parser;
 	var server = net.createServer(function(connection) {
 		var log_prefix = log.prefix(connection.remoteAddress);
 		console.log( log_prefix + 'client connected');
@@ -30,9 +31,24 @@ else {
 		connection.pause();
 
 		readline_inst.emitter.on(constant.EVT_LINE, function(cmd_line) {
-			connection.write(cmd_line, function() {
-				readline_inst.read_next();
-			});
+			var res = parser.parse(cmd_line);
+			switch (res.cmd) {
+				case 'MAIL':
+					console.log('Get mail from ' + res.from);
+					break;
+				case 'RSET':
+					connection.write('250\r\n', function() {
+						readline_inst.read_next();
+					});
+					break;
+				case 'QUIT':
+					connection.write('221\r\n', function() {
+						connection.end();
+					});
+					break;
+				default:
+					console.log("Unknown: " + res.cmd);
+			}
 		});
 
 		connection.on('timeout', function() {
