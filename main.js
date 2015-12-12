@@ -15,7 +15,8 @@ if (cluster.isMaster) {
 }
 else {
 	var net = require('net');
-	var parser = require('./grammar.js').parser;
+	var cmd_parser = require('./grammar_cmd.js').parser;
+	var address_parser = require('./grammar_address.js').parser;
 	var server = net.createServer(function(connection) {
 		var log_prefix = log.prefix(connection.remoteAddress);
 		console.log( log_prefix + 'client connected');
@@ -34,22 +35,65 @@ else {
 		connection.pause();
 
 		readline_inst.emitter.on('evt_cmd', function(cmd_line) {
-			var res = parser.parse(cmd_line);
+			var res;
+			try {
+				res = cmd_parser.parse(cmd_line);
+			}
+			catch (e) {
+				res = {cmd:''};
+				console.log(e);
+			}
+			var domain;
+			if (res.cmd === 'HELO' || res.cmd === 'MAIL' || res.cmd === 'RCPT') {
+				try {
+					domain = address_parser.parse(res.args);
+				}
+				catch (e) {
+					domain = {type: ''};
+					console.log(e);
+				}
+			}
+
 			switch (res.cmd) {
 				case 'HELO':
-					if (res.is_ext === 1) {
-						connection.write("250-" + config.domain_name + "\r\n", next_cmd);
-						connection.write("250 SIZE " + config.mail_data_max + "\r\n", next_cmd);
+					if (domain.type === 'domain') {
+						if (res.is_ext === 1) {
+							connection.write("250-" + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
+							connection.write("250 SIZE " + config.mail_data_max + "\r\n", next_cmd);
+						}
+						else {
+							connection.write("250 " + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
+						}
 					}
 					else {
-						connection.write("250 " + config.domain_name + "\r\n", next_cmd);
+						connection.write("550 syntax error domain name '" + res.args + "'\r\n", next_cmd);
 					}
 					break;
 				case 'MAIL':
-					console.log('Get mail from ' + res.from);
+					if (domain.type === 'path' || domain.type === 'empty') {
+						connection.write("250 The reverse-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+					}
+					else if (domain.type === 'domain') {
+						connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
+					}
+					else {
+						connection.write("553 '" + res.args + "' is not a mailbox.\r\n", next_cmd);
+					}
 					break;
 				case 'RCPT':
-					console.log('Rect to ' + res.to);
+					if (domain.type === 'path') {
+						connection.write("250 The forward-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+					}
+					else if (domain.type === 'domain') {
+						connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
+					}
+					else if (domain.type === 'empty') {
+						connection.write("553 mailbox can't be empty\r\n", next_cmd);
+					}
+					else {
+						connection.write("553 '" + res.args + "' is not a mailbox.\r\n", next_cmd);
+					}
+
 					break;
 				case 'DATA':
 					console.log('DATA');
@@ -65,7 +109,8 @@ else {
 					});
 					break;
 				default:
-					console.log("Unknown: " + res.cmd);
+					connection.write("550 '" + cmd_line + "' not recognize\r\n", next_cmd);
+					break;
 			}
 		});
 
