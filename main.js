@@ -4,27 +4,64 @@ var constant = require('./constant.js');
 var readline = require('./readline.js');
 
 var cluster = require('cluster');
+var fs = require('fs');
 
 if (cluster.isMaster) {
-	for (var i = 0; i < config.fork_num; ++i) {
-		cluster.fork();
-	}
-	cluster.on('exit', function(worker, code, signal) {
-		console.log('worker ' + worker.process.pid + 'died');
+	fs.mkdir(config.work_dir, function() {
+		fs.mkdir(config.dst_dir, function() {
+			for (var i = 0; i < config.fork_num; ++i) {
+				cluster.fork();
+			}
+			cluster.on('exit', function(worker, code, signal) {
+				console.log('worker ' + worker.process.pid + 'died');
+			});
+		});
 	});
 }
 else {
 	var net = require('net');
 	var cmd_parser = require('./grammar_cmd.js').parser;
 	var address_parser = require('./grammar_address.js').parser;
+	var seq = 0;
 
 	function MailTransaction(readline_inst) {
 		var me = this;
 		this.mail_from = null;
 		this.rcpt = [];
+		this.file_name = null;
+		this.stream = null;
+		this.fs_err = null;
+		this.src = null;
+		this.dst = null;
 		this.all_set = function() {
 			return me.mail_from != null && me.rcpt.length > 0;
 		}
+		this.open = function() {
+			if (seq === 10000000) {
+				seq = 0;
+			}
+			me.file_name = (new Date()).getTime() + '-' + cluster.worker.id + '-' + cluster.worker.process.pid + '-' + (seq++) + '-' + Math.random() + '.eml';
+			me.src = config.work_dir + '/' + me.file_name;
+			me.dst = config.dst_dir + '/' + me.file_name;
+			me.stream = fs.createWriteStream(me.src, {
+				flags: "w",
+				defaultEncoding: "ascii",
+				fd: null,
+				mode: 0o664
+			});
+			return me.stream ? true :false;
+		};
+
+		this.finish = function(failed) {
+			if (failed) {
+				me.stream.end();
+				fs.unlink(me.src);
+			}
+			else {
+				me.stream.end();
+				fs.rename(me.src, me.dst);
+			}
+		};
 	}
 
 	var server = net.createServer(function(connection) {
@@ -128,8 +165,14 @@ else {
 					break;
 				case 'DATA':
 					if (mail_transaction.all_set()) {
-						readline_inst.enter_data_mode();
-						connection.write("354 Start mail input; end with <CRLF>.<CRLF>\r\n", next_cmd);
+						if (mail_transaction.open()) {
+							readline_inst.enter_data_mode();
+							connection.write("354 Start mail input; end with <CRLF>.<CRLF>\r\n", next_cmd);
+						}
+						else {
+							mail_transaction = new MailTransaction();
+							connection.write("452 insufficient system storage\r\n", next_cmd);
+						}
 					}
 					else {
 						connection.write("503 Reverse path or forward-path not set\r\n", next_cmd);
@@ -151,11 +194,26 @@ else {
 		});
 
 		readline_inst.emitter.on('evt_data', function(buf) {
-			readline_inst.read_next();
+			if (mail_transaction.fs_err == null) {
+				mail_transaction.stream.write(buf, 'buffer', function(err){
+					if (err) {
+						mail_transaction.fs_err = err;
+					}
+					readline_inst.read_next();
+				});
+			}
+			else {
+				readline_inst.read_next();
+			}
 		});
 
 		readline_inst.emitter.on('evt_data_end', function(drop_mode) {
-			var message = drop_mode ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept\r\n';
+			var failed = drop_mode !== false && mail_transaction.fs_err !== null;
+
+			var message = failed ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept\r\n';
+
+			mail_transaction.finish(failed);
+
 			connection.write(message, function() {
 				mail_transaction = new MailTransaction();
 				readline_inst.disable_data_mode();
