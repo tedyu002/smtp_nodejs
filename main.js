@@ -26,7 +26,7 @@ else {
 		});
 		
 
-		var readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end');
+		var readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end', 'evt_char_invalid', 'buf_overflow_event');
 		var next_cmd = function() {
 			readline_inst.read_next();
 		}
@@ -118,12 +118,25 @@ else {
 		});
 
 		readline_inst.emitter.on('evt_data', function(buf) {
-			console.log("Get buf with length " + buf.length + ' ' + buf.toString('ascii'));
 			readline_inst.read_next();
 		});
 
-		readline_inst.emitter.on('evt_data_end', function() {
-			connection.write('250\r\n', function() {
+		readline_inst.emitter.on('evt_data_end', function(drop_mode) {
+			var message = drop_mode ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept\r\n';
+			connection.write(message, function() {
+				readline_inst.disable_data_mode();
+				readline_inst.read_next();
+			});
+		});
+
+		readline_inst.emitter.on('evt_char_invalid', function() {
+			connection.write('500 syntax error - invalid character\r\n', function() {
+				readline_inst.read_next();
+			});
+		});
+
+		readline_inst.emitter.on('buf_overflow_event', function() {
+			connection.write('500 syntax error - the line to long\r\n', function() {
 				readline_inst.disable_data_mode();
 				readline_inst.read_next();
 			});

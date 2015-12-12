@@ -16,47 +16,71 @@ var DM_DIS = 0;
 var DM_ENTER = 1;
 var DM_INTER = 2;
 
+var INTERNAL_NEXT_EVT = 'nextinterl_evt';
+
 module.exports = {
-	instance : function(connection, event_name, data_event, data_end_event) {
+	instance : function(connection, event_name, data_event, data_end_event, invalid_char_event, buf_overflow_event) {
 		var bufs = [];
 		var total_length = 0;
 		var emitter = new events.EventEmitter();
 		var data_mode = DM_DIS;
+		var drop_mode = false;
 
 		var post_process = function (cmd_buf) {
-			for (var i = 0; i < cmd_buf; ++i) {
-				if (cmd_buf[i] >= 128) {
-					/* TODO invalid charset Error handling */
+			if (drop_mode === false) {
+				for (var i = 0; i < cmd_buf.length; ++i) {
+					if (cmd_buf[i] == 0 || cmd_buf[i] >= 128) {
+						if (data_mode == DM_DIS) {
+							connection.pause();
+							emitter.emit(invalid_char_event, cmd_buf[i]);
+							return;
+						}
+						else {
+							drop_mode = true;
+						}
+					}
 				}
 			}
 
 			if (data_mode === DM_DIS) {
-				var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
-
-				connection.pause();
-				emitter.emit(event_name, str);
+				if (drop_mode === false) {
+					var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
+					connection.pause();
+					emitter.emit(event_name, str);
+				}
+				else {
+					connection.pause();
+					emitter.emit(buf_overflow_event);
+				}
 			}
 			else {
 				if (cmd_buf[0] == constant.PERIOD && cmd_buf.length > dotcrlf_buf.length) {
 					cmd_buf = cmd_buf.slice(1);
 				}
 
-				connection.pause();
 				if (cmd_buf.length == dotcrlf_buf.length &&
 					cmd_buf.equals(dotcrlf_buf)) {
-					emitter.emit(data_end_event);
+					connection.pause();
+					emitter.emit(data_end_event, drop_mode);
 				}
 				else {
 					data_mode = DM_INTER;
-					emitter.emit(data_event, cmd_buf);
+					if (drop_mode === false) {
+						connection.pause();
+						emitter.emit(data_event, cmd_buf);
+					}
+					else {
+						emitter.emit(INTERNAL_NEXT_EVT);
+					}
 				}
 			}
 		};
 
-		return {
+		var ret = {
 			emitter: emitter,
 			disable_data_mode: function() {
 				data_mode = DM_DIS;
+				drop_mode = false;
 			},
 			enter_data_mode: function() {
 				data_mode = DM_ENTER;
@@ -82,16 +106,28 @@ module.exports = {
 
 				if (processed === false) {
 					var index = chunk.indexOf(crlf_buf);
+
 					if (index === -1) {
+						if (total_length > config.buffer_size) {
+							/* Buf Overflow Error handling drop but remain least three to detect crlf or dotcrlf */
+
+							var append_buf = Buffer.concat(bufs);
+							bufs = null;
+
+							var remain_buf = new Buffer(append_buf.slice(append_buf.length - dotcrlf_buf.length));
+							append_buf = null;
+
+							bufs = [remain_buf];
+							total_length = remain_buf.length;
+
+							drop_mode = true;
+						}
+
 						bufs.push(chunk);
 						total_length += chunk.length;
-						if (total_length > config.buf_size) {
-							/* TODO Buf Overflow Error handling */
-						}
 					}
 					else {
 						bufs.push(chunk.slice(0, index + crlf_buf.length));
-
 						var tmp_buf = chunk.slice(index + crlf_buf.length);
 						if (tmp_buf.length > 0) {
 							new_buf = tmp_buf;
@@ -116,6 +152,7 @@ module.exports = {
 				}
 				else if (bufs.length > 1) {
 					/* TODO Error Handling */
+					console.log('should not hapepen error handling');
 				}
 				else {
 					var index = bufs[0].indexOf(crlf_buf);
@@ -133,5 +170,8 @@ module.exports = {
 				}
 			}
 		};
+
+		emitter.on(INTERNAL_NEXT_EVT, ret.read_next);
+		return ret;
 	}
 };
