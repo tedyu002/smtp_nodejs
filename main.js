@@ -17,6 +17,16 @@ else {
 	var net = require('net');
 	var cmd_parser = require('./grammar_cmd.js').parser;
 	var address_parser = require('./grammar_address.js').parser;
+
+	function MailTransaction(readline_inst) {
+		var me = this;
+		this.mail_from = null;
+		this.rcpt = [];
+		this.all_set = function() {
+			return me.mail_from != null && me.rcpt.length > 0;
+		}
+	}
+
 	var server = net.createServer(function(connection) {
 		var log_prefix = log.prefix(connection.remoteAddress);
 		console.log( log_prefix + 'client connected');
@@ -24,9 +34,11 @@ else {
 		connection.on('end', function() {
 			console.log(log_prefix + 'cliet disconnected');
 		});
-		
+
+		var mail_transaction = new MailTransaction();
 
 		var readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end', 'evt_char_invalid', 'buf_overflow_event');
+
 		var next_cmd = function() {
 			readline_inst.read_next();
 		}
@@ -64,46 +76,67 @@ else {
 						else {
 							connection.write("250 " + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
 						}
+						mail_transaction = new MailTransaction();
 					}
 					else {
 						connection.write("550 syntax error domain name '" + res.args + "'\r\n", next_cmd);
 					}
 					break;
 				case 'MAIL':
-					if (domain.type === 'path') {
-						connection.write("250 The reverse-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
-					}
-					else if (domain.type === 'empty') {
-						connection.write("250 The reverse-path is empty\r\n", next_cmd);
-					}
-					else if (domain.type === 'domain') {
-						connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
+					if (mail_transaction.mail_from != null) {
+						connection.write('503 Mail Already be set\r\n', next_cmd);
 					}
 					else {
-						connection.write("553 '" + res.args + "' is not a mailbox.\r\n", next_cmd);
+						if (domain.type === 'path') {
+							mail_transaction.mail_from = domain;
+							connection.write("250 The reverse-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+						}
+						else if (domain.type === 'empty') {
+							mail_transaction.mail_from = domain;
+							connection.write("250 The reverse-path is empty\r\n", next_cmd);
+						}
+						else if (domain.type === 'domain') {
+							connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
+						}
+						else {
+							connection.write("553 '" + res.args + "' is not a mailbox.\r\n", next_cmd);
+						}
 					}
 					break;
 				case 'RCPT':
-					if (domain.type === 'path') {
-						connection.write("250 The forward-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+					if (mail_transaction.mail_from == null) {
+						connection.write('503 Mail from is not set\r\n', next_cmd);
 					}
-					else if (domain.type === 'domain') {
-						connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
-					}
-					else if (domain.type === 'empty') {
-						connection.write("553 mailbox can't be empty\r\n", next_cmd);
+					else if (mail_transaction.rcpt.length >= config.rcpt_max) {
+						connection.write('452 Too many recipients\r\n', next_cmd);
 					}
 					else {
-						connection.write("553 '" + res.args + "' is not a mailbox.\r\n", next_cmd);
+						if (domain.type === 'path') {
+							mail_transaction.rcpt.push(domain);
+							connection.write("250 The forward-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+						}
+						else if (domain.type === 'domain') {
+							connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
+						}
+						else if (domain.type === 'empty') {
+							connection.write("553 mailbox can't be empty\r\n", next_cmd);
+						}
+						else {
+							connection.write("553 '" + res.args + "' is not a mailbox.\r\n", next_cmd);
+						}
 					}
-
 					break;
 				case 'DATA':
-					console.log('DATA');
-					readline_inst.enter_data_mode();
-					connection.write("354 Start mail input; end with <CRLF>.<CRLF>\r\n", next_cmd);
+					if (mail_transaction.all_set()) {
+						readline_inst.enter_data_mode();
+						connection.write("354 Start mail input; end with <CRLF>.<CRLF>\r\n", next_cmd);
+					}
+					else {
+						connection.write("503 Reverse path or forward-path not set\r\n", next_cmd);
+					}
 					break;
 				case 'RSET':
+					mail_transaction = new MailTransaction();
 					connection.write('250\r\n', next_cmd);
 					break;
 				case 'QUIT':
@@ -124,6 +157,7 @@ else {
 		readline_inst.emitter.on('evt_data_end', function(drop_mode) {
 			var message = drop_mode ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept\r\n';
 			connection.write(message, function() {
+				mail_transaction = new MailTransaction();
 				readline_inst.disable_data_mode();
 				readline_inst.read_next();
 			});
