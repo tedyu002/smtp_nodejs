@@ -185,7 +185,7 @@ else {
 		readline_inst.read_next();
 	});
 
-	server.listen(8000, function() {
+	server.listen(config.bind_port, function() {
 		var log_prefix = log.prefix('');
 		console.log(log_prefix + 'server is listening');
 	});
