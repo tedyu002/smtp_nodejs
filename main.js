@@ -20,9 +20,9 @@ if (cluster.isMaster) {
 }
 else {
 	var net = require('net');
+	var seq = 0;
 	var cmd_parser = require('./grammar_cmd.js').parser;
 	var address_parser = require('./grammar_address.js').parser;
-	var seq = 0;
 
 	function MailTransaction(readline_inst) {
 		var me = this;
@@ -33,6 +33,7 @@ else {
 		this.fs_err = null;
 		this.src = null;
 		this.dst = null;
+		this.write_size = 0;
 		this.all_set = function() {
 			return me.mail_from != null && me.rcpt.length > 0;
 		}
@@ -194,11 +195,12 @@ else {
 		});
 
 		readline_inst.emitter.on('evt_data', function(buf) {
-			if (mail_transaction.fs_err == null) {
+			if (mail_transaction.fs_err == null || mail_transaction.write_size < config.mail_data_max) {
 				mail_transaction.stream.write(buf, 'buffer', function(err){
 					if (err) {
 						mail_transaction.fs_err = err;
 					}
+					mail_transaction.write_size += buf.length;
 					readline_inst.read_next();
 				});
 			}
@@ -208,9 +210,9 @@ else {
 		});
 
 		readline_inst.emitter.on('evt_data_end', function(drop_mode) {
-			var failed = drop_mode !== false && mail_transaction.fs_err !== null;
+			var failed = drop_mode !== false || mail_transaction.fs_err !== null || mail_transaction.write_size >= config.mail_data_max;
 
-			var message = failed ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept\r\n';
+			var message = failed ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept with size ' + mail_transaction.write_size + '\r\n';
 
 			mail_transaction.finish(failed);
 
