@@ -23,6 +23,36 @@ module.exports = {
 		var emitter = new events.EventEmitter();
 		var data_mode = DM_DIS;
 
+		var post_process = function (cmd_buf) {
+			for (var i = 0; i < cmd_buf; ++i) {
+				if (cmd_buf[i] >= 128) {
+					/* TODO invalid charset Error handling */
+				}
+			}
+
+			if (data_mode === DM_DIS) {
+				var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
+
+				connection.pause();
+				emitter.emit(event_name, str);
+			}
+			else {
+				if (cmd_buf[0] == constant.PERIOD && cmd_buf.length > dotcrlf_buf.length) {
+					cmd_buf = cmd_buf.slice(1);
+				}
+
+				connection.pause();
+				if (cmd_buf.length == dotcrlf_buf.length &&
+					cmd_buf.equals(dotcrlf_buf)) {
+					emitter.emit(data_end_event);
+				}
+				else {
+					data_mode = DM_INTER;
+					emitter.emit(data_event, cmd_buf);
+				}
+			}
+		};
+
 		return {
 			emitter: emitter,
 			disable_data_mode: function() {
@@ -77,34 +107,7 @@ module.exports = {
 					bufs = new_buf ? [new_buf] : [];
 					total_length = new_buf ? new_buf.length : 0;
 
-					for (var i = 0; i < cmd_buf; ++i) {
-						if (cmd_buf[i] >= 128) {
-							/* TODO invalid charset Error handling */
-						}
-					}
-
-					if (data_mode === DM_DIS) {
-						var str = cmd_buf.slice(0, cmd_buf.length - 2).toString('ascii');
-						cmd_buf = null;
-
-						connection.pause();
-						emitter.emit(event_name, str);
-					}
-					else {
-						if (cmd_buf[0] == constant.PERIOD && cmd_buf.length > dotcrlf_buf.length) {
-							cmd_buf = cmd_buf.slice(1);
-						}
-
-						connection.pause();
-						if (cmd_buf.length == dotcrlf_buf.length &&
-							cmd_buf.equals(dotcrlf_buf)) {
-							emitter.emit(data_end_event);
-						}
-						else {
-							data_mode = DM_INTER;
-							emitter.emit(data_event, cmd_buf);
-						}
-					}
+					post_process(cmd_buf);
 				}
 			},
 			read_next: function() {
@@ -125,10 +128,7 @@ module.exports = {
 
 						bufs = tmp_buf.length > 0 ? [tmp_buf] : [];
 
-						var str = cmd_buf.toString('ascii');
-						cmd_buf = null;
-						
-						emitter.emit(event_name, str);
+						post_process(cmd_buf);
 					}
 				}
 			}
