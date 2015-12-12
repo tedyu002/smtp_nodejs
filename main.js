@@ -13,7 +13,8 @@ if (cluster.isMaster) {
 				cluster.fork();
 			}
 			cluster.on('exit', function(worker, code, signal) {
-				console.log('worker ' + worker.process.pid + 'died');
+				console.log('worker ' + worker.process.pid + ' died, refork');
+				cluster.fork();
 			});
 		});
 	});
@@ -67,15 +68,18 @@ else {
 
 	var server = net.createServer(function(connection) {
 		var log_prefix = log.prefix(connection.remoteAddress);
-		console.log( log_prefix + 'client connected');
+		var readline_inst;
+		console.log(log_prefix + 'client connected');
 
 		connection.on('end', function() {
+			readline_inst.emitter.removeAllListeners();
+			connection.removeAllListeners();
 			console.log(log_prefix + 'cliet disconnected');
 		});
 
 		var mail_transaction = new MailTransaction();
 
-		var readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end', 'evt_char_invalid', 'buf_overflow_event');
+		readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end', 'evt_char_invalid', 'buf_overflow_event');
 
 		var next_cmd = function() {
 			readline_inst.read_next();
@@ -108,8 +112,8 @@ else {
 				case 'HELO':
 					if (domain.type === 'domain') {
 						if (res.is_ext === 1) {
-							connection.write("250-" + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
-							connection.write("250 SIZE " + config.mail_data_max + "\r\n", next_cmd);
+							connection.write("250-" + config.domain_name + " greeting " + domain.value + "\r\n" +
+											 "250 SIZE " + config.mail_data_max + "\r\n", next_cmd);
 						}
 						else {
 							connection.write("250 " + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
