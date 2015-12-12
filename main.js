@@ -70,8 +70,11 @@ else {
 					}
 					break;
 				case 'MAIL':
-					if (domain.type === 'path' || domain.type === 'empty') {
+					if (domain.type === 'path') {
 						connection.write("250 The reverse-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+					}
+					else if (domain.type === 'empty') {
+						connection.write("250 The reverse-path is empty\r\n", next_cmd);
 					}
 					else if (domain.type === 'domain') {
 						connection.write("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
