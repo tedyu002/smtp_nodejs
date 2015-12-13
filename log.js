@@ -1,7 +1,10 @@
 var cluster = require('cluster');
 
 module.exports = {
-	prefix: function(ip) {
-		return '[' + cluster.worker.id + ' ' + cluster.worker.process.pid + ' ' + ip + '] ';
+	instance: function(ip) {
+		var prefix = ' ' + cluster.worker.id + ' ' + cluster.worker.process.pid + ' ' + ip + '] ';
+		return function(message) {
+			console.log('[' + (new Date()).toISOString() + prefix + message);
+		};
 	}
 };

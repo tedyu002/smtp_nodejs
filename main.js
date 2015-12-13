@@ -69,14 +69,14 @@ else {
 	}
 
 	var server = net.createServer(function(connection) {
-		var log_prefix = log.prefix(connection.remoteAddress);
+		var logger = log.instance(connection.remoteAddress);
 		var readline_inst;
-		console.log(log_prefix + 'client connected');
+		logger('client connected');
 
 		connection.on('close', function() {
 			readline_inst.emitter.removeAllListeners();
 			connection.removeAllListeners();
-			console.log(log_prefix + 'cliet disconnected');
+			logger('cliet disconnected');
 		});
 
 		var mail_transaction = new MailTransaction();
@@ -84,19 +84,19 @@ else {
 		readline_inst = readline.instance(connection, 'evt_cmd', 'evt_data', 'evt_data_end', 'evt_char_invalid', 'buf_overflow_event');
 
 		connection.on('error', function() {
-			console.log(log_prefix + ' connection error');
+			logger('connection error');
 			connection.destroy();
 		});
 
 		var safe_send = function(mesg, callback) {
 			try{
 				if (config.debug) {
-					console.log(log_prefix + 'send ' + mesg);
+					logger('send ' + mesg);
 				}
 				connection.write(mesg, callback);
 			}
 			catch(e) {
-				console.log(log_prefix + e);
+				logger(e);
 				connection.destroy();
 			}
 		};
@@ -115,7 +115,7 @@ else {
 			}
 			catch (e) {
 				res = {cmd:''};
-				console.log(log_prefix + e);
+				logger(e);
 			}
 			var domain;
 			if (res.cmd === 'HELO' || res.cmd === 'MAIL' || res.cmd === 'RCPT') {
@@ -124,7 +124,7 @@ else {
 				}
 				catch (e) {
 					domain = {type: ''};
-					console.log(log_prefix + e);
+					logger(e);
 				}
 			}
 
@@ -299,7 +299,7 @@ else {
 	});
 
 	server.listen(config.bind_port, function() {
-		var log_prefix = log.prefix('');
-		console.log(log_prefix + 'server is listening');
+		var logger = log.instance('');
+		logger('server is listening');
 	});
 }
