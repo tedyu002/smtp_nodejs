@@ -115,7 +115,7 @@ else {
 			}
 			catch (e) {
 				res = {cmd:''};
-				console.log(e);
+				console.log(log_prefix + e);
 			}
 			var domain;
 			if (res.cmd === 'HELO' || res.cmd === 'MAIL' || res.cmd === 'RCPT') {
@@ -124,7 +124,7 @@ else {
 				}
 				catch (e) {
 					domain = {type: ''};
-					console.log(e);
+					console.log(log_prefix + e);
 				}
 			}
 
