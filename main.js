@@ -35,6 +35,7 @@ else {
 		this.src = null;
 		this.dst = null;
 		this.write_size = 0;
+		this.bufs = [];
 		this.all_set = function() {
 			return me.mail_from != null && me.rcpt.length > 0;
 		}
@@ -215,20 +216,28 @@ else {
 
 		readline_inst.emitter.on('evt_data', function(buf) {
 			if (mail_transaction.fs_err == null || mail_transaction.write_size < config.mail_data_max) {
-				mail_transaction.stream.write(buf, 'buffer', function(err){
-					if (err) {
-						mail_transaction.fs_err = err;
-					}
-					mail_transaction.write_size += buf.length;
+				mail_transaction.bufs.push(buf);
+				if (mail_transaction.bufs.length > 64) {
+					var buf_merge = Buffer.concat(mail_transaction.bufs);
+					mail_transaction.bufs = [];
+					mail_transaction.stream.write(buf_merge, 'buffer', function(err){
+						if (err) {
+							mail_transaction.fs_err = err;
+						}
+						mail_transaction.write_size += buf_merge.length;
+						readline_inst.read_next();
+					});
+				}
+				else {
 					readline_inst.read_next();
-				});
+				}
 			}
 			else {
 				readline_inst.read_next();
 			}
 		});
 
-		readline_inst.emitter.on('evt_data_end', function(drop_mode) {
+		var data_end_func = function(drop_mode) {
 			var failed = drop_mode !== false || mail_transaction.fs_err !== null || mail_transaction.write_size >= config.mail_data_max;
 
 			var message = failed ? '500 syntax error - invalid character or bufoverflow for an line, drop message\r\n' : '250 mail accept with size ' + mail_transaction.write_size + '\r\n';
@@ -240,6 +249,24 @@ else {
 				readline_inst.disable_data_mode();
 				readline_inst.read_next();
 			});
+
+		};
+
+		readline_inst.emitter.on('evt_data_end', function(drop_mode) {
+			if (mail_transaction.bufs.length != 0) {
+				var buf_merge = Buffer.concat(mail_transaction.bufs);
+				mail_transaction.bufs = [];
+				mail_transaction.stream.write(buf_merge, 'buffer', function(err){
+					if (err) {
+						mail_transaction.fs_err = err;
+					}
+					mail_transaction.write_size += buf_merge.length;
+					data_end_func(drop_mode);
+				});
+			}
+			else {
+				data_end_func(drop_mode);
+			}
 		});
 
 		readline_inst.emitter.on('evt_char_invalid', function() {
