@@ -36,6 +36,7 @@ else {
 		this.dst = null;
 		this.write_size = 0;
 		this.bufs = [];
+		this.buf_size = 0;
 		this.all_set = function() {
 			return me.mail_from != null && me.rcpt.length > 0;
 		}
@@ -217,9 +218,12 @@ else {
 		readline_inst.emitter.on('evt_data', function(buf) {
 			if (mail_transaction.fs_err == null || mail_transaction.write_size < config.mail_data_max) {
 				mail_transaction.bufs.push(buf);
-				if (mail_transaction.bufs.length > 64) {
+				mail_transaction.buf_size += buf.length;
+				if (mail_transaction.bufs.length >= config.data_write_merge_count || mail_transaction.buf_size > config.buffer_size) {
+					console.log(mail_transaction.buf_size);
 					var buf_merge = Buffer.concat(mail_transaction.bufs);
 					mail_transaction.bufs = [];
+					mail_transaction.buf_size = 0;
 					mail_transaction.stream.write(buf_merge, 'buffer', function(err){
 						if (err) {
 							mail_transaction.fs_err = err;
@@ -256,6 +260,7 @@ else {
 			if (mail_transaction.bufs.length != 0) {
 				var buf_merge = Buffer.concat(mail_transaction.bufs);
 				mail_transaction.bufs = [];
+				mail_transaction.buf_size = 0;
 				mail_transaction.stream.write(buf_merge, 'buffer', function(err){
 					if (err) {
 						mail_transaction.fs_err = err;
