@@ -135,8 +135,7 @@ else {
 				case 'HELO':
 					if (domain.type === 'domain') {
 						if (res.is_ext === 1) {
-							safe_send("250-" + config.domain_name + " greeting " + domain.value + "\r\n" +
-									  "250 SIZE " + config.mail_data_max + "\r\n", next_cmd);
+							safe_send("250 " + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
 						}
 						else {
 							safe_send("250 " + config.domain_name + " greeting " + domain.value + "\r\n", next_cmd);
