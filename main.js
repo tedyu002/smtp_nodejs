@@ -220,7 +220,6 @@ else {
 				mail_transaction.bufs.push(buf);
 				mail_transaction.buf_size += buf.length;
 				if (mail_transaction.bufs.length >= config.data_write_merge_count || mail_transaction.buf_size > config.buffer_size) {
-					console.log(mail_transaction.buf_size);
 					var buf_merge = Buffer.concat(mail_transaction.bufs);
 					mail_transaction.bufs = [];
 					mail_transaction.buf_size = 0;
