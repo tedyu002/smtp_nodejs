@@ -1,5 +1,6 @@
 
 module.exports = {
+	debug: false,
 	domain_name: "kekeke.com",
 	bind_port: 8000,
 	work_dir: './work_dir',

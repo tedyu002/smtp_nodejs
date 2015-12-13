@@ -90,6 +90,9 @@ else {
 
 		var safe_send = function(mesg, callback) {
 			try{
+				if (config.debug) {
+					console.log(log_prefix + 'send ' + mesg);
+				}
 				connection.write(mesg, callback);
 			}
 			catch(e) {
