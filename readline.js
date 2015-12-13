@@ -54,16 +54,16 @@ module.exports = {
 				}
 			}
 			else {
-				if (cmd_buf[0] == constant.PERIOD && cmd_buf.length > dotcrlf_buf.length) {
-					cmd_buf = cmd_buf.slice(1);
-				}
-
 				if (cmd_buf.length == dotcrlf_buf.length &&
 					cmd_buf.equals(dotcrlf_buf)) {
 					connection.pause();
 					emitter.emit(data_end_event, drop_mode);
 				}
 				else {
+					if (cmd_buf[0] == constant.PERIOD && cmd_buf.length > dotcrlf_buf.length) {
+						cmd_buf = cmd_buf.slice(1);
+					}
+
 					data_mode = DM_INTER;
 					if (drop_mode === false) {
 						connection.pause();
