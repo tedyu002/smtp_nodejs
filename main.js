@@ -85,6 +85,9 @@ else {
 
 		connection.on('error', function() {
 			logger('connection error');
+			if (mail_transaction.stream != null) {
+				mail_transaction.finish(true);
+			}
 			connection.destroy();
 		});
 
