@@ -293,7 +293,7 @@ else {
 
 		connection.setTimeout(config.idle_time);
 
-		readline_inst.read_next();
+		safe_send('220 ' + config.domain_name + 'service ready\r\n', next_cmd);
 	});
 
 	server.listen(config.bind_port, function() {
