@@ -38,6 +38,8 @@ else {
 			smtp_server.run();
 		}
 		else if (type === 'pop3') {
+			var pop3_server = require('./pop3.js');
+			pop3_server.run();
 		}
 	});
 }

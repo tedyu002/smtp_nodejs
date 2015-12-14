@@ -287,7 +287,7 @@ var smtp_server = function () {
 		safe_send('220 ' + config.domain_name + 'service ready\r\n', next_cmd);
 	});
 
-	server.listen(config.bind_port, function() {
+	server.listen(config.smtp_port, function() {
 		var logger = log.instance('');
 		logger('server is listening');
 	});

@@ -2,7 +2,8 @@
 module.exports = {
 	debug: false,
 	domain_name: "kekeke.com",
-	bind_port: 8000,
+	smtp_port: 8000,
+	pop3_port: 8110,
 	work_dir: './work_dir',
 	dst_dir: './dst_dir',
 	fork_num: (require('os').cpus().length / 2) + 1,
