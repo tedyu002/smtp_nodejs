@@ -256,7 +256,19 @@ console.log(data);
 					break;
 				case 'QUIT':
 					if (session.is_auth) {
-						safe_send("+OK Goodbye, '" + session.user + "'\r\n");
+						var remain_message = 0;
+						for (var i = 0; i < session.mail_lists.length; ++i) {
+							var message = session.mail_lists[i];
+							if (message.deleted === true) {
+								var file = session.maildrop + '/' + message.id;
+								fs.unlink(file);
+							}
+							else {
+								remain_message++;
+							}
+						}
+
+						safe_send("+OK Goodbye, '" + session.user + "' (" + remain_message + " message left)\r\n");
 					}
 					else {
 						safe_send("+OK Goodbye, unknown user\r\n");
