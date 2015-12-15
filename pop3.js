@@ -22,6 +22,9 @@ function Session() {
 	this.mail_lists = null;
 	this.is_auth = false;
 	this.stream = null;
+	this.total_size = 0;
+	this.full_total_size = 0;
+	this.deleted_num = 0;
 	this.auth = function() {
 		return true;
 	};
@@ -133,11 +136,14 @@ var pop3_server = function () {
 									var full_path = session.maildrop + '/' + files[i];
 									var stat = fs.statSync(full_path);
 									if (stat) {
-										session.mail_lists.push(new Message(files[i], util.inspect(stat.size)));
+										var size = Number(util.inspect(stat.size));
+										session.total_size += size;
+										session.mail_lists.push(new Message(files[i], size));
 									}
 								}
+								session.full_total_size = session.total_size;
 							}
-							safe_send("+OK Pass accepted\r\n", next_cmd);
+							safe_send("+OK Pass accepted, user " + session.user + " has " + session.mail_lists.length + " messages (" + session.total_size + " octets)\r\n", next_cmd);
 							logger("User '" + session.user + "' login");
 						});
 
@@ -154,6 +160,7 @@ var pop3_server = function () {
 						safe_send("-ERR No Auth\r\n", next_cmd);
 						break;
 					}
+					safe_send('+OK ' + (session.mail_lists.length - session.deleted_num) + ' ' + session.total_size + "\r\n", next_cmd);
 					break;
 				case 'LIST':
 					if (session.is_auth === false) {
@@ -230,7 +237,10 @@ console.log(data);
 						safe_send("-ERR already deleted\r\n", next_cmd);
 					}
 					else {
-						session.mail_lists[cmd.arg - 1].deleted = true;
+						var message = session.mail_lists[cmd.arg - 1];
+						message.deleted = true;
+						session.total_size -= message.size;
+						session.deleted_num++;
 						safe_send("+OK Delete\r\n", next_cmd);
 					}
 					break;
@@ -251,6 +261,8 @@ console.log(data);
 					for (var i = 0; i < session.mail_lists.length; ++i) {
 						session.mail_lists[i].deleted = false;
 					}
+					session.deleted_num = 0;
+					session.total_size = session.full_total_size;
 
 					safe_send("+OK Reset\r\n", next_cmd);
 					break;

@@ -16,6 +16,7 @@ function MailTransaction(readline_inst) {
 	var me = this;
 	this.mail_from = null;
 	this.rcpt = [];
+	this.rcpt_hash = {};
 	this.file_name = null;
 	this.stream = null;
 	this.fs_err = null;
@@ -178,8 +179,12 @@ var smtp_server = function () {
 					}
 					else {
 						if (domain.type === 'path') {
-							mail_transaction.rcpt.push(domain);
-							safe_send("250 The forward-path is '" + domain.value.local_part + '@' + domain.value.domain + "'\r\n", next_cmd);
+							var fl = domain.value.local_part + '@' + domain.value.domain;
+							if (!mail_transaction.rcpt_hash[fl]) {
+								mail_transaction.rcpt.push(domain);
+								mail_transaction.rcpt_hash[fl] = true;
+							}
+							safe_send("250 The forward-path is '" + fl + "'\r\n", next_cmd);
 						}
 						else if (domain.type === 'domain') {
 							safe_send("553 '" + domain.value + "' is a domain, not a mailbox\r\n", next_cmd);
