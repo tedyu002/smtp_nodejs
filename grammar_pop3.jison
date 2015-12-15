@@ -40,7 +40,7 @@ cmd
 		{
 			$$ = {
 				cmd: 'USER',
-				arg: $2;
+				arg: $2
 			};
 		}
 	| PASS ARGS
@@ -113,7 +113,7 @@ cmd
 	| UIDL
 		{
 			$$ = {
-				cmd: 'UIDL'
+				cmd: 'UIDL',
 				arg: 0
 			};
 		}
@@ -121,7 +121,7 @@ cmd
 		{
 			$$ = {
 				cmd: 'UIDL',
-				arg: Number($2);
+				arg: Number($2)
 			};
 		}
 	;

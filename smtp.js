@@ -5,6 +5,7 @@ var readline = require('./readline.js');
 
 var cluster = require('cluster');
 var fs = require('fs');
+var crypto = require('crypto');
 
 var net = require('net');
 var seq = 0;
@@ -49,7 +50,21 @@ function MailTransaction(readline_inst) {
 		}
 		else {
 			me.stream.end();
-			fs.rename(me.src, me.dst);
+
+			for(var i = 0; i < me.rcpt.length; ++i) {
+				var md5sum = crypto.createHash('md5');
+				md5sum.update(me.rcpt[i].value.local_part + '@' + me.rcpt[i].value.domain);
+				var user_dir_name = md5sum.digest('hex');
+				var user_dir = config.dst_dir + '/' + user_dir_name;
+				try{
+					fs.mkdirSync(user_dir);
+				}
+				catch(e) {
+				}
+				var final_dst = user_dir + '/' + me.file_name;
+				fs.linkSync(me.src, final_dst);
+			}
+			fs.unlink(me.src);
 		}
 	};
 }
@@ -289,7 +304,7 @@ var smtp_server = function () {
 
 	server.listen(config.smtp_port, function() {
 		var logger = log.instance('');
-		logger('server is listening');
+		logger('smtp server is listening');
 	});
 };
 
