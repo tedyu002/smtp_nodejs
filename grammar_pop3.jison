@@ -40,7 +40,7 @@ cmd
 		{
 			$$ = {
 				cmd: 'USER',
-				arg: $2
+				arg: $2.trim()
 			};
 		}
 	| PASS ARGS

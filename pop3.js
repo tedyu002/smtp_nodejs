@@ -100,8 +100,13 @@ var pop3_server = function () {
 						safe_send("-ERR Already auth\r\n", next_cmd);
 						break;
 					}
-					session.user = cmd.arg;
-					safe_send("+OK User accept\r\n", next_cmd);
+					if (cmd.arg.length !== 0) {
+						session.user = cmd.arg;
+						safe_send("+OK User accept\r\n", next_cmd);
+					}
+					else {
+						safe_send("-ERR User name must be given\r\n", next_cmd);
+					}
 					break;
 				case 'PASS':
 					if (session.is_auth) {
