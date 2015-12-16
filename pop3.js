@@ -214,9 +214,9 @@ var pop3_server = function () {
 					break;
 				case 'LISTN':
 					if (range_and_auth_check(cmd.arg)) {
-						var messages = [];
-						messages.push("+OK messages (" + session.total_size + ' octets)\r\n');
 						var message = session.mail_lists[cmd.arg - 1];
+						var messages = [];
+						messages.push("+OK 1 message (" + message.size + ' octets)\r\n');
 						messages.push(cmd.arg + ' ' + message.size + "\r\n");
 						messages.push(".\r\n");
 						var entire_message = messages.join('');
@@ -330,6 +330,18 @@ var pop3_server = function () {
 					messages = null;
 
 					safe_send(entire_message, next_cmd);
+					break;
+				case 'UIDLN':
+					if (range_and_auth_check(cmd.arg)) {
+						var message = session.mail_lists[cmd.arg - 1];
+						var messages = [];
+						messages.push("+OK 1 message (" + message.size + ' octets)\r\n');
+						messages.push(cmd.arg + ' ' + message.id + "\r\n");
+						messages.push(".\r\n");
+						var entire_message = messages.join('');
+						messages = null;
+						safe_send(entire_message, next_cmd);
+					}
 					break;
 				default:
 					safe_send("Command '" + cmd_line + "' is not recoginized\r\n", next_cmd);

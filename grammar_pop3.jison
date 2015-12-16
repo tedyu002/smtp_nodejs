@@ -113,7 +113,7 @@ cmd
 	| UIDL SP NUMBER
 		{
 			$$ = {
-				cmd: 'UIDL',
+				cmd: 'UIDLN',
 				arg: Number($3)
 			};
 		}
