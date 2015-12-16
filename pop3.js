@@ -169,6 +169,7 @@ var pop3_server = function () {
 					}
 
 					var messages = [];
+					messages.push("+OK " + (session.mail_lists.length - session.deleted_num) + ' messages (' + session.total_size + ' octets)\r\n');
 					for (var i = 0; i < session.mail_lists.length; ++i) {
 						var message = session.mail_lists[i];
 						if (message.deleted === false) {
@@ -294,6 +295,7 @@ console.log(data);
 					}
 
 					var messages = [];
+					messages.push("+OK " + (session.mail_lists.length - session.deleted_num) + ' messages (' + session.total_size + ' octets)\r\n');
 					for (var i = 0; i < session.mail_lists.length; ++i) {
 						var message = session.mail_lists[i];
 						if (message.deleted === false) {
