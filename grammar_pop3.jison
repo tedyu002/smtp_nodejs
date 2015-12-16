@@ -8,15 +8,17 @@
 
 <INITIAL>\s*(U|u)(S|s)(E|e)(R|r)\s*    {this.begin("args"); return "USER";}
 <INITIAL>\s*(P|p)(A|a)(S|s)(S|s)\s     {this.begin("args"); return "PASS";}
-<INITIAL>\s*(S|s)(T|t)(A|a)(T|t)\s*    {this.begin("number"); return "STAT";}
-<INITIAL>\s*(L|l)(I|i)(S|s)(T|t)\s*    {this.begin("number"); return "LIST";}
-<INITIAL>\s*(R|r)(E|e)(T|t)(R|r)\s+    {this.begin("number"); return "RETR";}
-<INITIAL>\s*(D|d)(E|e)(L|l)(E|e)\s+    {this.begin("number"); return "DELE";}
-<INITIAL>\s*(N|n)(O|o)(O|o)(P|p)       {return "NOOP";}
-<INITIAL>\s*(R|r)(S|s)(E|e)(T|t)       {return "RSET";}
-<INITIAL>\s*(Q|q)(U|u)(I|i)(T|t)       {return "QUIT";}
-<INITIAL>\s*(U|u)(I|i)(D|d)(L|l)\s*    {this.begin("number"); return "UIDL";}
-<number>[1-9][0-9]*                    {return "NUMBER";}
+<INITIAL>\s*(S|s)(T|t)(A|a)(T|t)\s*$   {return "STAT";}
+<INITIAL>\s*(L|l)(I|i)(S|s)(T|t)       {this.begin("number"); return "LIST";}
+<INITIAL>\s*(R|r)(E|e)(T|t)(R|r)       {this.begin("number"); return "RETR";}
+<INITIAL>\s*(D|d)(E|e)(L|l)(E|e)       {this.begin("number"); return "DELE";}
+<INITIAL>\s*(N|n)(O|o)(O|o)(P|p)\s*$   {return "NOOP";}
+<INITIAL>\s*(R|r)(S|s)(E|e)(T|t)\s*$   {return "RSET";}
+<INITIAL>\s*(Q|q)(U|u)(I|i)(T|t)\s*$   {return "QUIT";}
+<INITIAL>\s*(U|u)(I|i)(D|d)(L|l)       {this.begin("number"); return "UIDL";}
+<number>\s+                            {return "SP";}
+<number>[1-9][0-9]*\s*$                {return "NUMBER";}
+<number>.                              {return "ERROR";}
 <args>.*                               {return "ARGS";}
 
 /lex
@@ -56,38 +58,31 @@ cmd
 				cmd: 'STAT'
 			};
 		}
-	| STAT NUMBER
-		{
-			$$ = {
-				cmd: 'STAT',
-				arg: Number($2)
-			};
-		}
 	| LIST
 		{
 			$$ = {
 				cmd: 'LIST'
 			};
 		}
-	| LIST NUMBER
+	| LIST SP NUMBER
 		{
 			$$ = {
 				cmd: 'LISTN',
-				arg: Number($2)
+				arg: Number($3)
 			};
 		}
-	| RETR NUMBER
+	| RETR SP NUMBER
 		{
 			$$ = {
 				cmd: 'RETR',
-				arg: Number($2)
+				arg: Number($3)
 			};
 		}
-	| DELE NUMBER
+	| DELE SP NUMBER
 		{
 			$$ = {
 				cmd: 'DELE',
-				arg: Number($2)
+				arg: Number($3)
 			};
 		}
 	| NOOP
@@ -115,11 +110,11 @@ cmd
 				arg: 0
 			};
 		}
-	| UIDL NUMBER
+	| UIDL SP NUMBER
 		{
 			$$ = {
 				cmd: 'UIDL',
-				arg: Number($2)
+				arg: Number($3)
 			};
 		}
 	;
