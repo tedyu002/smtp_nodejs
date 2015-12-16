@@ -17,7 +17,6 @@ function Session() {
 	var me = this;
 
 	this.user = null;
-	this.pass = null;
 	this.maildrop = null;
 	this.mail_lists = null;
 	this.is_auth = false;
@@ -25,9 +24,6 @@ function Session() {
 	this.total_size = 0;
 	this.full_total_size = 0;
 	this.deleted_num = 0;
-	this.auth = function() {
-		return true;
-	};
 }
 
 function Message(id, size) {
@@ -36,8 +32,21 @@ function Message(id, size) {
 	this.size = size;
 }
 
+function UserDB() {
+	var raw_data = fs.readFileSync('./userdb.json', {encoding: 'utf8'});
+	var db = JSON.parse(raw_data);
+	this.auth = function(user_name, password) {
+		var stored_password = db[user_name];
+		if (stored_password) {
+			return password === stored_password;
+		}
+		return false;
+	}
+}
+
 var pop3_server = function () {
 	var login_users = {};
+	var user_db = new UserDB();
 
 	var server = net.createServer(function(connection) {
 		var logger = log.instance(connection.remoteAddress);
@@ -134,8 +143,7 @@ var pop3_server = function () {
 						safe_send("-ERR Who are you\r\n", next_cmd);
 						break;
 					}
-					session.pass = cmd.arg;
-					if (session.auth()) {
+					if (user_db.auth(session.user, cmd.arg)) {
 						if (login_users[session.user]) {
 							safe_send("-ERR You are already login\r\n", next_cmd);
 							session = new Session();
@@ -172,7 +180,7 @@ var pop3_server = function () {
 						break;
 					}
 					else {
-						safe_send("-ERR Auth error\r\n", ext_cmd);
+						safe_send("-ERR Auth error\r\n", next_cmd);
 						session = new Session();
 						break;
 					}
