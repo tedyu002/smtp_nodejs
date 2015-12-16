@@ -10,8 +10,8 @@
 <INITIAL>\s*(P|p)(A|a)(S|s)(S|s)\s     {this.begin("args"); return "PASS";}
 <INITIAL>\s*(S|s)(T|t)(A|a)(T|t)\s*    {this.begin("number"); return "STAT";}
 <INITIAL>\s*(L|l)(I|i)(S|s)(T|t)\s*    {this.begin("number"); return "LIST";}
-<INITIAL>\s*(R|r)(E|e)(T|t)(R|r)\s*    {this.begin("number"); return "RETR";}
-<INITIAL>\s*(D|d)(E|e)(L|l)(E|e)\s*    {this.begin("number"); return "DELE";}
+<INITIAL>\s*(R|r)(E|e)(T|t)(R|r)\s+    {this.begin("number"); return "RETR";}
+<INITIAL>\s*(D|d)(E|e)(L|l)(E|e)\s+    {this.begin("number"); return "DELE";}
 <INITIAL>\s*(N|n)(O|o)(O|o)(P|p)       {return "NOOP";}
 <INITIAL>\s*(R|r)(S|s)(E|e)(T|t)       {return "RSET";}
 <INITIAL>\s*(Q|q)(U|u)(I|i)(T|t)       {return "QUIT";}
@@ -53,8 +53,7 @@ cmd
 	| STAT
 		{
 			$$ = {
-				cmd: 'STAT',
-				arg: 0
+				cmd: 'STAT'
 			};
 		}
 	| STAT NUMBER
@@ -67,14 +66,13 @@ cmd
 	| LIST
 		{
 			$$ = {
-				cmd: 'LIST',
-				arg: 0
+				cmd: 'LIST'
 			};
 		}
 	| LIST NUMBER
 		{
 			$$ = {
-				cmd: 'LIST',
+				cmd: 'LISTN',
 				arg: Number($2)
 			};
 		}

@@ -84,6 +84,23 @@ var pop3_server = function () {
 		connection.on('data', readline_inst.read);
 		connection.pause();
 
+		var range_and_auth_check = function(index) {
+			if (session.is_auth === false) {
+				safe_send("-ERR No Auth\r\n", next_cmd);
+				return false;
+			}
+			else if (index < 1 || index > session.mail_lists.length) {
+				safe_send("-ERR out of range\r\n", next_cmd);
+				return false;
+			}
+			else if (session.mail_lists[index - 1].deleted) {
+				safe_send("-ERR already deleted\r\n", next_cmd);
+				return false;
+			}
+
+			return true;
+		};
+
 		readline_inst.emitter.on('evt_cmd', function(cmd_line) {
 			var cmd;
 			try {
@@ -187,18 +204,20 @@ var pop3_server = function () {
 
 					safe_send(entire_message, next_cmd);
 					break;
+				case 'LISTN':
+					if (range_and_auth_check(cmd.arg)) {
+						var messages = [];
+						messages.push("+OK messages (" + session.total_size + ' octets)\r\n');
+						var message = session.mail_lists[cmd.arg - 1];
+						messages.push(cmd.arg + ' ' + message.size + "\r\n");
+						messages.push(".\r\n");
+						var entire_message = messages.join('');
+						messages = null;
+						safe_send(entire_message, next_cmd);
+					}
+					break;
 				case 'RETR':
-					if (session.is_auth === false) {
-						safe_send("-ERR No Auth\r\n", next_cmd);
-						break;
-					}
-					else if (cmd.arg < 1 || cmd.arg > session.mail_lists.length) {
-						safe_send("-ERR out of range\r\n", next_cmd);
-					}
-					else if (session.mail_lists[cmd.arg - 1].deleted) {
-						safe_send("-ERR already deleted\r\n", next_cmd);
-					}
-					else {
+					if (range_and_auth_check(cmd.arg)) {
 						var message = session.mail_lists[cmd.arg - 1];
 						fs.readFile(session.maildrop + '/' + message.id, {encoding: 'ascii'}, function(err, data) {
 							if (err) {
@@ -233,16 +252,7 @@ var pop3_server = function () {
 
 					break;
 				case 'DELE':
-					if (session.is_auth === false) {
-						safe_send("-ERR No Auth\r\n", next_cmd);
-					}
-					else if (cmd.arg < 1 || cmd.arg > session.mail_lists.length) {
-						safe_send("-ERR out of range\r\n", next_cmd);
-					}
-					else if (session.mail_lists[cmd.arg - 1].deleted) {
-						safe_send("-ERR already deleted\r\n", next_cmd);
-					}
-					else {
+					if (range_and_auth_check(cmd.arg)) {
 						var message = session.mail_lists[cmd.arg - 1];
 						message.deleted = true;
 						session.total_size -= message.size;
