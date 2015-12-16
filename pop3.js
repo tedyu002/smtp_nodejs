@@ -207,11 +207,11 @@ var pop3_server = function () {
 								}
 								var start_index = 0;
 								var next_index = 0;
-console.log(data);
-								while ((next_index = data.indexOf("\r\n.", start_index)) != -1 ) {
-									buffers.push(data.substr(start_index, next_index + 2));
+
+								while (start_index < data.length && (next_index = data.indexOf("\r\n.", start_index)) != -1) {
+									buffers.push(data.substr(start_index, (next_index + 3) - start_index));
 									buffers.push('.');
-									start_index += 3;
+									start_index = next_index + 3;
 								}
 								buffers.push(data.substr(start_index));
 
