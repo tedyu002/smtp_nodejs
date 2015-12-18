@@ -344,7 +344,7 @@ var pop3_server = function () {
 					}
 					break;
 				default:
-					safe_send("Command '" + cmd_line + "' is not recoginized\r\n", next_cmd);
+					safe_send("-ERR Command '" + cmd_line + "' is not recoginized\r\n", next_cmd);
 			}
 		});
 
